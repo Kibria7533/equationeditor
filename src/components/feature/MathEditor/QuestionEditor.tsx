@@ -29,13 +29,13 @@ const generateId = () => Math.random().toString(36).substring(2, 9);
 // Parse stored string back to blocks
 const parseStoredContent = (stored: string): ContentBlock[] => {
   if (!stored) return [{ type: 'text', id: generateId(), content: '' }];
-  
+
   const blocks: ContentBlock[] = [];
   let remaining = stored;
-  
+
   while (remaining.length > 0) {
     const mathStart = remaining.indexOf(MATH_START_MARKER);
-    
+
     if (mathStart === -1) {
       // No more math blocks, rest is text
       if (remaining.length > 0) {
@@ -43,12 +43,10 @@ const parseStoredContent = (stored: string): ContentBlock[] => {
       }
       break;
     }
-    
-    // Add text before math block
-    if (mathStart > 0) {
-      blocks.push({ type: 'text', id: generateId(), content: remaining.substring(0, mathStart) });
-    }
-    
+
+    // Add text before math block (even if empty to allow editing at start)
+    blocks.push({ type: 'text', id: generateId(), content: remaining.substring(0, mathStart) });
+
     // Find end of math block
     const mathEnd = remaining.indexOf(MATH_END_MARKER, mathStart);
     if (mathEnd === -1) {
@@ -56,24 +54,42 @@ const parseStoredContent = (stored: string): ContentBlock[] => {
       blocks.push({ type: 'text', id: generateId(), content: remaining.substring(mathStart) });
       break;
     }
-    
+
     // Extract latex content
     const latex = remaining.substring(mathStart + MATH_START_MARKER.length, mathEnd);
     blocks.push({ type: 'math', id: generateId(), latex });
-    
+
     remaining = remaining.substring(mathEnd + MATH_END_MARKER.length);
   }
-  
-  if (blocks.length === 0) {
+
+  // Ensure there's always a text block at the end
+  if (blocks.length === 0 || blocks[blocks.length - 1].type === 'math') {
     blocks.push({ type: 'text', id: generateId(), content: '' });
   }
-  
+
   return blocks;
 };
 
 // Convert blocks to storage string
 const blocksToStorageString = (blocks: ContentBlock[]): string => {
-  return blocks.map(block => {
+  // Filter out empty text blocks at the beginning and end, but keep them in the middle
+  let filteredBlocks = [...blocks];
+
+  // Remove leading empty text blocks
+  while (filteredBlocks.length > 0 &&
+         filteredBlocks[0].type === 'text' &&
+         filteredBlocks[0].content === '') {
+    filteredBlocks.shift();
+  }
+
+  // Remove trailing empty text blocks
+  while (filteredBlocks.length > 0 &&
+         filteredBlocks[filteredBlocks.length - 1].type === 'text' &&
+         filteredBlocks[filteredBlocks.length - 1].content === '') {
+    filteredBlocks.pop();
+  }
+
+  return filteredBlocks.map(block => {
     if (block.type === 'text') {
       return block.content;
     } else {

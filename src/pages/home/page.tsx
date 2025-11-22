@@ -44,26 +44,25 @@ const HomePage = () => {
     if (!questionContent.trim()) return;
 
     try {
-      // Extract title from first line or use default
-      const lines = questionContent.split('\n');
-      const title = lines[0]?.substring(0, 50) || 'Untitled Question';
-      
       if (editingId) {
-        setSavedQuestions(prev => prev.map(q => 
-          q.id === editingId 
-            ? { ...q, title: title, content: questionContent }
+        // Keep the existing title when editing
+        setSavedQuestions(prev => prev.map(q =>
+          q.id === editingId
+            ? { ...q, content: questionContent }
             : q
         ));
         setEditingId(null);
       } else {
+        // Generate simple sequential title for new questions
+        const questionNumber = savedQuestions.length + 1;
         const newQuestion = {
           id: Date.now().toString(),
-          title: title,
+          title: `Question ${questionNumber}`,
           content: questionContent,
         };
         setSavedQuestions(prev => [...prev, newQuestion]);
       }
-      
+
       setQuestionContent('');
       setEditorKey(prev => prev + 1);
     } catch (error) {
