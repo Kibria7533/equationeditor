@@ -108,6 +108,7 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
   const [blocks, setBlocks] = useState<ContentBlock[]>(() => parseStoredContent(initialValue));
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [cursorPosition, setCursorPosition] = useState<number>(0);
   const editorRef = useRef<HTMLDivElement>(null);
   const textInputRefs = useRef<Map<string, HTMLInputElement>>(new Map());
 
@@ -134,10 +135,10 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
     ));
   }, []);
 
-  const insertMathBlock = useCallback(() => {
-    const newMathBlock: MathBlock = { type: 'math', id: generateId(), latex: '' };
+  const insertMathBlock = useCallback((initialLatex?: string) => {
+    const newMathBlock: MathBlock = { type: 'math', id: generateId(), latex: initialLatex || '' };
     const newTextBlock: TextBlock = { type: 'text', id: generateId(), content: '' };
-    
+
     if (!activeBlockId) {
       // Insert at end
       setBlocks(prev => {
@@ -148,20 +149,20 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
         return [...prev, newMathBlock, newTextBlock];
       });
     } else {
-      // Insert at cursor position in active text block
+      // Insert at saved cursor position in active text block
       setBlocks(prev => {
         const blockIndex = prev.findIndex(b => b.id === activeBlockId);
         if (blockIndex === -1) return prev;
-        
+
         const block = prev[blockIndex];
         if (block.type !== 'text') return prev;
-        
-        const inputEl = textInputRefs.current.get(activeBlockId);
-        const cursorPos = inputEl?.selectionStart || block.content.length;
-        
+
+        // Use the saved cursor position
+        const cursorPos = cursorPosition;
+
         const beforeText = block.content.substring(0, cursorPos);
         const afterText = block.content.substring(cursorPos);
-        
+
         const newBlocks: ContentBlock[] = [
           ...prev.slice(0, blockIndex),
           { type: 'text', id: block.id, content: beforeText },
@@ -169,13 +170,17 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
           { type: 'text', id: generateId(), content: afterText },
           ...prev.slice(blockIndex + 1),
         ];
-        
+
         return newBlocks.filter(b => !(b.type === 'text' && b.content === '' && newBlocks.indexOf(b) !== newBlocks.length - 1));
       });
     }
-    
+
+    // Set the newly created math block as active
+    setActiveBlockId(newMathBlock.id);
     setShowSymbolPicker(false);
-  }, [activeBlockId]);
+
+    return newMathBlock.id;
+  }, [activeBlockId, cursorPosition]);
 
   const insertSymbolIntoMath = useCallback((latex: string) => {
     if (activeBlockId) {
@@ -221,6 +226,20 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
 
   const handleTextFocus = useCallback((id: string) => {
     setActiveBlockId(id);
+    const inputEl = textInputRefs.current.get(id);
+    if (inputEl) {
+      setCursorPosition(inputEl.selectionStart || 0);
+    }
+  }, []);
+
+  const handleTextClick = useCallback((id: string, e: React.MouseEvent<HTMLInputElement>) => {
+    const inputEl = e.target as HTMLInputElement;
+    setCursorPosition(inputEl.selectionStart || 0);
+  }, []);
+
+  const handleTextKeyUp = useCallback((id: string, e: React.KeyboardEvent<HTMLInputElement>) => {
+    const inputEl = e.target as HTMLInputElement;
+    setCursorPosition(inputEl.selectionStart || 0);
   }, []);
 
   return (
@@ -240,20 +259,11 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
               onInsert={(latex) => {
                 const activeBlock = blocks.find(b => b.id === activeBlockId);
                 if (activeBlock?.type === 'math') {
+                  // Insert symbol into existing active math block
                   insertSymbolIntoMath(latex);
                 } else {
-                  insertMathBlock();
-                  // Insert the symbol into the new math block
-                  setTimeout(() => {
-                    setBlocks(prev => {
-                      const mathBlocks = prev.filter(b => b.type === 'math');
-                      const lastMath = mathBlocks[mathBlocks.length - 1];
-                      if (lastMath) {
-                        return prev.map(b => b.id === lastMath.id ? { ...b, latex } : b);
-                      }
-                      return prev;
-                    });
-                  }, 0);
+                  // Create new math block with the symbol already in it
+                  insertMathBlock(latex);
                 }
                 setShowSymbolPicker(false);
               }}
@@ -263,7 +273,7 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
         </div>
         
         <button
-          onClick={insertMathBlock}
+          onClick={() => insertMathBlock()}
           className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors cursor-pointer whitespace-nowrap"
         >
           <i className="ri-add-line"></i>
@@ -308,6 +318,8 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
                   className="outline-none border-none bg-transparent min-w-[20px]"
                   onChange={(e) => handleTextInput(block.id, e)}
                   onFocus={() => handleTextFocus(block.id)}
+                  onClick={(e) => handleTextClick(block.id, e)}
+                  onKeyUp={(e) => handleTextKeyUp(block.id, e)}
                   placeholder={index === 0 && blocks.length === 1 && block.content === '' ? placeholder : ''}
                   style={{
                     width: block.content ? `${Math.max(block.content.length * 10, 20)}px` : '20px',
