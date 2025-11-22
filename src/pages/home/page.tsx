@@ -46,12 +46,18 @@ const HomePage = () => {
     try {
       if (editingId) {
         // Keep the existing title when editing
+        console.log('=== UPDATING EXISTING QUESTION ===');
+        console.log('Question ID:', editingId);
+        console.log('Updated Content:', questionContent);
+
         setSavedQuestions(prev => prev.map(q =>
           q.id === editingId
             ? { ...q, content: questionContent }
             : q
         ));
         setEditingId(null);
+
+        console.log('Question updated successfully!');
       } else {
         // Generate simple sequential title for new questions
         const questionNumber = savedQuestions.length + 1;
@@ -60,7 +66,15 @@ const HomePage = () => {
           title: `Question ${questionNumber}`,
           content: questionContent,
         };
+
+        console.log('=== SAVING NEW QUESTION ===');
+        console.log('Question Number:', questionNumber);
+        console.log('Question Content:', questionContent);
+        console.log('Full Question Object:', newQuestion);
+
         setSavedQuestions(prev => [...prev, newQuestion]);
+
+        console.log('Question saved successfully!');
       }
 
       setQuestionContent('');

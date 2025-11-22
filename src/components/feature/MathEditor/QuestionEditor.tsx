@@ -115,7 +115,12 @@ const QuestionEditor = ({ initialValue = '', onChange, placeholder = 'Type your 
   // Notify parent of changes
   useEffect(() => {
     if (onChange) {
-      onChange(blocksToStorageString(blocks));
+
+      const storedValue = blocksToStorageString(blocks);
+      console.log('--- Question Content Updated ---');
+      console.log('Storage Format:', storedValue);
+      console.log('Blocks:', blocks);
+      onChange(storedValue);
     }
   }, [blocks, onChange]);
 
